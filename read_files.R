@@ -5,7 +5,7 @@
 require(tidyverse)
 require(lubridate)
 
-read_hobo <- function(filename, dir = "SampleFiles/Flumes/V1V2/HoboU20OutsideWell",
+read_hobo <- function(filename, dir ,
                           coltypes = cols("d","c","d","d","d","d","c","c","c","c"),
                           skip = 1, plotit = F) {
 #browser()
@@ -36,7 +36,7 @@ read_hobo <- function(filename, dir = "SampleFiles/Flumes/V1V2/HoboU20OutsideWel
 read_dir <- "SampleFiles/Flumes/V1V2/HoboU20OutsideWell"
 filenames <- dir(path = read_dir, pattern = ".csv")
 
-test <- read_hobo(filenames[1],dir = read_dir,
+test <- read_hobo(filenames[1],dir,
                       plotit = T) 
 head(test)
 
