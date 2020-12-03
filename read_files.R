@@ -5,6 +5,8 @@
 require(tidyverse)
 require(lubridate)
 
+# --- HOBO ----
+
 read_hobo <- function(filename, dir ,
                           coltypes = cols("d","c","d","d","d","d","c","c","c","c"),
                           skip = 1, plotit = F) {
