@@ -28,7 +28,7 @@ read_hobo_rain <- function(filename, dir ,
     # remove NA values
         na.omit() %>%
     # calculate the difference
-        mutate(`Rain, mm` = c(0,diff(`Rain, tip count`))) 
+        mutate(`Rain, mm` = c(0,diff(`Rain, tip count`))*0.0254) 
       
     # join files back together (needs full_join)
       file_out <- full_join(file_out_temp,file_out_rain)
@@ -38,7 +38,7 @@ read_hobo_rain <- function(filename, dir ,
           pivot_longer(cols = c(`Temp, °C`,`Rain, mm`),
                        names_to = "Measures", values_to ="values") %>%
           ggplot(aes(`Date and Time`,values, colour = Measures)) +
-          geom_line() + facet_wrap(~Measures, ncol = 2, scales = "free")
+          geom_line(size =2) + facet_wrap(~Measures, ncol = 2, scales = "free")
         print(p)
       }
 return(file_out)
