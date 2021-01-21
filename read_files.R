@@ -1,6 +1,6 @@
 # Reading in la Corona data
 
-# Functions to read in all the Flume data
+# Functions to read in all the water and well data
 
 require(tidyverse)
 require(lubridate)
@@ -83,7 +83,7 @@ head(test_stevens)
 read_isco <- function(filename, input_dir , 
                       coltypes = cols("c","i","i"),
                       skip = 7, plotit = F) {
-browser()
+#browser()
   file_read <- read_csv(paste(input_dir,filename,sep="/"),
                         col_names =F,
                         skip = skip, col_types = coltypes)
@@ -112,6 +112,43 @@ filenames <- dir(path = read_dir, pattern = ".csv")
 test_isco <- read_isco(filename = filenames[1], input_dir = read_dir,
                   plotit = T) 
 head(test_isco)
+
+## Barometric pressure (V3/V4)
+
+read_bar <- function(filename, input_dir ,
+                      coltypes = cols("d","c","d","d","c","c","c","c","c","c"),
+                      skip = 1, plotit = F) {
+  #browser()
+  file_read <- read_csv(paste(input_dir,filename,sep="/"),
+                        skip = skip, col_types = coltypes)
+  file_read <- file_read %>%
+    mutate(`Date and Time` = mdy_hms(`Date Time, GMT-03:00`,
+                                     tz = "America/Argentina/Buenos_Aires")) 
+  colnames(file_read)[3:4] <- c("Abs Pressure kPa", "Temp, °C")
+  file_out <- file_read %>%
+    select(`Date and Time`,`Abs Pressure kPa`, `Temp, °C`)
+  
+  if (plotit == T) {
+    p <- file_out %>%
+      na.omit() %>%
+      pivot_longer(cols = `Abs Pressure kPa`:`Temp, °C`,
+                   names_to = "Measures", values_to ="values") %>%
+      ggplot(aes(`Date and Time`,values, colour = Measures)) +
+      geom_line() + facet_wrap(~Measures, ncol = 2, scales = "free")
+    print(p)
+  }
+  return(file_out)
+}
+
+# testing
+read_dir <- "SampleFiles/Flumes/V3V4/BarometricPressure"
+filenames <- dir(path = read_dir, pattern = ".csv")
+
+test_bar <- read_bar(filename = filenames[1], input_dir = read_dir,
+                  plotit = T) 
+head(test_bar)
+
+
 
 
 # auxillary function to deal with a.m. and p.m.
