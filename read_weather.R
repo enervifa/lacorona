@@ -40,13 +40,13 @@ browser()
   return(file_out)
 }          
 
-# testing read_weather
-read_dir <- "SampleFiles/Weather"
-filename <- dir(path = read_dir, pattern = ".dat")
-
-test_weather<- read_weather(filename[1],dir = read_dir,
-                                plotit = T) 
-
+# # testing read_weather
+# read_dir <- "SampleFiles/Weather"
+# filename <- dir(path = read_dir, pattern = ".dat")
+# 
+# test_weather<- read_weather(filename[1],dir = read_dir,
+#                                 plotit = T) 
+# 
 
 
 # auxillary function to fix the dropped 0's in the time values

@@ -35,13 +35,13 @@ read_hobo <- function(filename, input_dir ,
   return(file_out)
 }
 
-# testing
-read_dir <- "SampleFiles/Flumes/V1V2/HoboU20OutsideWell"
-filenames <- dir(path = read_dir, pattern = ".csv")
-
-test <- read_hobo(filename = filenames[1], input_dir = read_dir,
-                      plotit = T) 
-head(test)
+# # testing
+# read_dir <- "SampleFiles/Flumes/V1V2/HoboU20OutsideWell"
+# filenames <- dir(path = read_dir, pattern = ".csv")
+# 
+# test <- read_hobo(filename = filenames[1], input_dir = read_dir,
+#                       plotit = T) 
+# head(test)
 
 # --- HOBOU12--- Stevens
 
@@ -71,13 +71,13 @@ read_stevens <- function(filename, input_dir,
   return(file_out)
 }
 
-# testing
-read_dir <- "SampleFiles/Flumes/V1V2/StevensHoboU12"
-filenames <- dir(path = read_dir, pattern = ".csv")
-
-test_stevens <- read_stevens(filenames[1], input_dir = read_dir,
-                  plotit = T)
-head(test_stevens)
+# # testing
+# read_dir <- "SampleFiles/Flumes/V1V2/StevensHoboU12"
+# filenames <- dir(path = read_dir, pattern = ".csv")
+# 
+# test_stevens <- read_stevens(filenames[1], input_dir = read_dir,
+#                   plotit = T)
+# head(test_stevens)
 
 # --- ISCO ----
 read_isco <- function(filename, input_dir , 
@@ -105,13 +105,13 @@ read_isco <- function(filename, input_dir ,
   return(file_out)
 }
 
-# testing
-read_dir <- "SampleFiles/Flumes/V1V2/ISCOSampler"
-filenames <- dir(path = read_dir, pattern = ".csv")
-
-test_isco <- read_isco(filename = filenames[1], input_dir = read_dir,
-                  plotit = T) 
-head(test_isco)
+# # testing
+# read_dir <- "SampleFiles/Flumes/V1V2/ISCOSampler"
+# filenames <- dir(path = read_dir, pattern = ".csv")
+# 
+# test_isco <- read_isco(filename = filenames[1], input_dir = read_dir,
+#                   plotit = T) 
+# head(test_isco)
 
 ## Barometric pressure (V3/V4)
 
@@ -140,14 +140,14 @@ read_bar <- function(filename, input_dir ,
   return(file_out)
 }
 
-# testing
-read_dir <- "SampleFiles/Flumes/V3V4/BarometricPressure"
-filenames <- dir(path = read_dir, pattern = ".csv")
-
-test_bar <- read_bar(filename = filenames[1], input_dir = read_dir,
-                  plotit = T) 
-head(test_bar)
-
+# # testing
+# read_dir <- "SampleFiles/Flumes/V3V4/BarometricPressure"
+# filenames <- dir(path = read_dir, pattern = ".csv")
+# 
+# test_bar <- read_bar(filename = filenames[1], input_dir = read_dir,
+#                   plotit = T) 
+# head(test_bar)
+# 
 
 
 
