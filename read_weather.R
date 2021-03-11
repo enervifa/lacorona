@@ -14,7 +14,7 @@ c_names <- c("id", "julian", "time", "battery voltage", "Temperature °C", "RelH"
 read_weather <- function(filename, dir ,
                          coltypes = cols("d","c","c","d","d","d","d","d","d","d","d"),
                            plotit = F) {
-browser()
+#browser()
   file_read <- read_csv(paste(dir,filename,sep="/"),
                         col_names=c_names, col_types = coltypes)
   
