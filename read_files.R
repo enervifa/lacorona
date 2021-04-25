@@ -89,10 +89,10 @@ read_isco <- function(filename, input_dir ,
                         skip = skip, col_types = coltypes)
   colnames(file_read) <- c("Date and Time", "Sample",
                                 "Level (ft)")
-  file_read <- file_read %>%
-    mutate(`Date and Time` = time_convert(`Date and Time`)) 
-  file_out <- file_read
-  
+  file_out <- file_read %>%
+    mutate(`Date and Time` = time_convert(`Date and Time`)) %>%
+    mutate(`Level (ft)` = as.numeric(paste(Sample, `Level (ft)`, sep = ".")))
+
   if (plotit == T) {
     p <- file_out %>%
       na.omit() %>%
@@ -102,7 +102,7 @@ read_isco <- function(filename, input_dir ,
       geom_line() + facet_wrap(~Measures, ncol = 2, scales = "free")
     print(p)
   }
-  return(file_out)
+  return(file_out %>% select(`Time and Date`,`Level (ft)`))
 }
 
 # # testing
@@ -110,7 +110,7 @@ read_isco <- function(filename, input_dir ,
 # filenames <- dir(path = read_dir, pattern = ".csv")
 # 
 # test_isco <- read_isco(filename = filenames[1], input_dir = read_dir,
-#                   plotit = T) 
+#                   plotit = T)
 # head(test_isco)
 
 ## Barometric pressure (V3/V4)

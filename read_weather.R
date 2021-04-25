@@ -11,7 +11,7 @@ c_names <- c("id", "julian", "time", "battery voltage", "Temperature °C", "RelH"
 
 
 # Read in the weather station files
-read_weather <- function(filename, dir ,
+read_hobo_weather <- function(filename, dir ,
                          coltypes = cols("d","c","c","d","d","d","d","d","d","d","d"),
                            plotit = F) {
 #browser()

@@ -14,7 +14,7 @@ source(paste(script_dir,"read_well.R",sep="/"))
 # What do you want to read?
 main_type <- "Flumes"
 which_catch <- 1 # or 2, 3 4
-what_to_plot <- list("Level","Temperature")
+what_to_plot <- list("Water Level (m)","Flow (m3/sec)")
 
 ### ---- use case 2
 # main_type <- "Flumes"
@@ -43,12 +43,39 @@ read_data <- function(main_type, which_catch,
       main_type == "Weather" ~ "read_weather"
     )
   
-    # read in the data
+    # read in the main data
     data_r <- do.call(fun,
-                      list(which_catch = which_catch, main_p = main_path))
+                      list(which_catch = which_catch, 
+                           main_p = main_path))
+    if (missing == F & length(data_r) > 1) {
+      data_r <- data_r[[1]]
+    }
+    
+    # check if weather data or rain data is needed
+    if (main_type != "Rain" & grepl("Rainfall", what_to_plot) == T) {
+      data_rain <- read_rain(which_catch = which_catch,
+                             main_p = main_path)
+    }
+    if (main_type != "Weather" & grepl("Temperature", what_to_plot) == T) {
+      data_w <- read_weather(which_catch = which_catch,
+                             main_p = main_path)
+    }
+    
+    data_plotting <- data_r
+    
+    # merge with rainfall data if exists
+    if (exists(data_rain)) {
+      data_plotting <- left_join(data_plotting,data_rain, 
+                                 by = `Date and Time`)
+    }
+    # merge with weather data if exists
+    if (exists(data_w)) {
+      data_plotting <- left_join(data_plotting,data_w, 
+                                 by = `Date and Time`)
+    }
     
   # manipulate data to plot exactly what is required
-    
+  
 
 }
 
@@ -91,6 +118,12 @@ read_flume <- function(which_catch,
       # add a column with the name of logger
       mutate(logger = logger_order[i])
   }
+  # convert the isco logger data from ft to depth in meters
+  is <- grep("isco",logger_order)
+  data[[is]] <- data[[is]] %>%
+    mutate(`Water Level, meters` = `Level (ft)`*0.3048) %>%
+    select(`Date and Time`, `Water Level, meters`)
+             
   
   # Convert the stevens logger from volt to depth
   st <- grep("stevens",logger_order)
@@ -108,6 +141,9 @@ read_flume <- function(which_catch,
   ## -----------------------------------------
   ## in here do something with fill_missing = T
   ## ------------------------------------------
+  # start with looking at the isco data
+  test <- sum(ifelse(is.na(data[[1]]$`Level (ft)`)==T,1,0))
+    
   }
   # return list of logger data
   return(data)
@@ -160,6 +196,24 @@ read_rain <- function(which_catch,
   return(data)
 }
 
+# read_weather auxillary function
+read_weather <- function(which_catch,
+                      fill_missing = F, main_p = main_path, Automatic = T) {
+  read_path <- paste(main_p,"Weather",sep="/")
+  # the filename from the main path (assuming "automatic")
+  file <- list.files(read_path, pattern = "csv")
+  # this needs to be extended for multiple files and combining
+  data <- read_hobo_weather(filelist,read_path)
+  
+  
+  if (fill_missing == T) {
+    ## -----------------------------------------
+    ## in here do something with fill_missing = T
+    ## ------------------------------------------
+  }
+  # return list of logger data
+  return(data)
+}
 # main_folder_chooser <- function(what_to_plot) {
 #   folder <- list()
 #   # now also includes character for file names
