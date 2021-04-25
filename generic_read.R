@@ -9,80 +9,177 @@ source(paste(script_dir,"read_files.R",sep="/"))
 source(paste(script_dir,"read_rain.R",sep="/"))
 source(paste(script_dir,"read_weather.R",sep="/"))
 source(paste(script_dir,"read_well.R",sep="/"))
-# lookup table
-folder_function_decision_table <- 
-  read_csv(paste(script_dir,"folder_function_decision_table.csv", sep="/"))
 
+### ----- use case 1
 # What do you want to read?
 main_type <- "Flumes"
-which_catch <- "V1V2" # or V3V4
-which_site <- 1 # can be 1,2,3 or 4
+which_catch <- 1 # or 2, 3 4
 what_to_plot <- list("Level","Temperature")
-specific <- "HOBO"
-# ISCO, Stevens, HOBO
+
+### ---- use case 2
+# main_type <- "Flumes"
+# which_catch <- 1 # or 2, 3 4
+# what_to_plot <- list("Level","Temperature")
+# specific <- "HOBOU20"
+# ISCO, HOBOU20, HOBOU12(Stevens), Emergency (only for V1V2)
+
+### --- use case 3
+# main_type <- "Rain"
+# which_catch <- 2 # or 1, 3 4
+# what_to_plot <- list("Rain","Temperature")
+
 
 # generic read function
 read_data <- function(main_type, which_catch,
-                      which_site = 1, 
                       what_to_plot, main_path = "SampleFiles",
                       specific = NULL,
-                      fill_missing = TRUE, 
-                      lookup = folder_function_decision_table) {
-  browser()
-  # interpret the main type to select the folder
-  folder_data <- main_folder_chooser(main_type)
-  # which read data function to use?
-  # Use the functions and paths in fun_rows select to read in the data
-  fun_data <- rows_select(what_to_plot,lookup)
+                      fill_missing = F) {
 
-  # paths
-  path_a <- path_fun(main_path, folder_data, which_catch, specific,
-                     fun_data)  
+  # interpret the main type to select the folder
+    fun <- case_when(
+      main_type == "Flumes" ~ "read_flume",
+      main_type == "Wells" ~ "read_well",
+      main_type == "Rain" ~ "read_rain",
+      main_type == "Weather" ~ "read_weather"
+    )
   
-  # find file names
-  files_to_read <- lapply(path_a, file_name_select, which_site)
-  
-  # now read the files
-  # functions in a list: function_list
-  data <- list()
-  function_list <- as.list(fun_data[3:6]) # hard coded 3:6
-  for (i in 1:length(function_list)) {
-    # we need to clarify file naming conventions
-    data[[i]] <- do.call(function_list[[i]],
-                         list(file_name = file_to_read[[i]],
-                         input_dir = path_a[[i]]))
-  
-    # investigate the missing data
-    if (fill_missing == T) {
-      missing <- list()
-      # 1. function to quantify the missing data in each dataset
-      missing[[i]] <- length(data[[i]][is.na(data[[i]])==T])
-      
-      # 2. decision on matching (which_max)
-      # 3. matching and filling
-    }  
-  }
-  
+    # read in the data
+    data_r <- do.call(fun,
+                      list(which_catch = which_catch, main_p = main_path))
+    
   # manipulate data to plot exactly what is required
+    
 
 }
 
 # testing
-read_data(main_type, which_catch,
+read_data(which_catch,
           which_site = 1, 
           what_to_plot)
 
 
-main_folder_chooser <- function(main_type) {
-  # now also includes character for file names
-  folder <- case_when(
-    grepl("flume",main_type, ignore.case = T) == T ~ "Flumes",
-    grepl("weather",main_type, ignore.case = T) == T ~ "Weather",
-    grepl("rain",main_type, ignore.case = T) == T ~ "Rain",
-    grepl("well",main_type, ignore.case = T) == T ~ "Well",
-  )
-  return(folder)
+# Auxiliary functions
+# read_flume, the output of this function is a list with data from all loggers associated with the flumes
+read_flume <- function(which_catch,
+                            fill_missing = F, main_p = main_path) {
+  if (which_catch < 3) {
+    path <- paste(main_p,"Flumes/V1V2", sep="/")
+    logger_order <- c("isco","stevens","hobou20")
+    
+  } else {
+    path <- paste(main_p,"Flumes/V3V4", sep="/")
+    logger_order <- c("isco","hobou20","stevens")
+  }
+  dir_list <- dir(path = path)
+  # exclude the emergency spill way HoboU20. Need to check with Chip
+  dir_list <- dir_list[!grepl("Emergency",dir_list)]
+  # Create an empty data list
+  data <- list()
+  # run down logger order to read in the data from each logger
+  # this for loop needs to be rewritten as a function and using map
+  for (i in 1:length(logger_order)){
+    # find the path to the specific logger output
+    read_path <- paste(path,dir_list[grep(logger_order[i],dir_list,
+                                          ignore.case = T)],sep="/")
+    # find the list of files
+    filelist <- list.files(path=read_path,pattern ="csv")
+    # use do.call to call the different functions
+    data[[i]] <- do.call(paste0("read_",logger_order[i]),
+                         # figure out which file to read
+                         list(filename =filelist[ifelse(catch < 3,catch, catch - 2)], 
+                              input_dir = read_path)) %>% 
+      # add a column with the name of logger
+      mutate(logger = logger_order[i])
+  }
+  
+  # Convert the stevens logger from volt to depth
+  st <- grep("stevens",logger_order)
+  data[[st]] <- data[[st]] %>%
+    mutate(`Water Level, meters` =
+             case_when(
+               which_catch == 1 ~ -0.03549 + 1.2*`Volt, V`,
+               which_catch == 2 ~ -0.666 + 1.2*`Volt, V`,
+               which_catch == 3 ~ 3.266 -1.28761*`Volt, V`,
+               which_catch == 2 ~ -0.65 + 1.2*`Volt, V`
+             )) %>%
+    select(`Date and Time`,`Water Level, meters`, `Temp, °C`)
+  
+  if (fill_missing == T) {
+  ## -----------------------------------------
+  ## in here do something with fill_missing = T
+  ## ------------------------------------------
+  }
+  # return list of logger data
+  return(data)
 }
+
+read_well <- function(which_catch,
+                       fill_missing = F, main_p = main_path, Automatic = T) {
+    read_path <- paste(main_p,"Wells",
+                       ifelse(Automatic ==T, "Automatic", "Manual"), sep="/")
+    # the filename from the main path (assuming "automatic")
+    filelist <- list.files(read_path, pattern = "csv")
+    data <- read_hobo_well(filelist[catch],read_path)
+  
+
+  if (fill_missing == T) {
+    ## -----------------------------------------
+    ## in here do something with fill_missing = T
+    ## ------------------------------------------
+  }
+  # return list of logger data
+  return(data)
+}
+
+
+read_rain <- function(which_catch,
+                      fill_missing = F, main_p = main_path, Automatic = T) {
+  # account for missing rain gauges for 2 and 3
+  if (which_catch == 2) {
+    which_catch <- 1
+    message("using raingauge from catchment 1")
+  }
+  if (which_catch == 3) {
+    which_catch <- 4
+    message("using raingauge from catchment 4")
+  }
+  
+  read_path <- paste(main_p,"Rain",
+                     ifelse(Automatic ==T, "Automatic", "Manual"), sep="/")
+  # the filename from the main path (assuming "automatic")
+  filelist <- list.files(read_path, pattern = "csv")
+  data <- read_hobo_rain(filelist[catch],read_path)
+  
+  
+  if (fill_missing == T) {
+    ## -----------------------------------------
+    ## in here do something with fill_missing = T
+    ## ------------------------------------------
+  }
+  # return list of logger data
+  return(data)
+}
+
+# main_folder_chooser <- function(what_to_plot) {
+#   folder <- list()
+#   # now also includes character for file names
+#   folder[[1]] <- case_when(
+#     grepl("level",what_to_plot[[1]], ignore.case = T) == T ~ "Flumes",
+#     grepl("temperature",what_to_plot[[1]], ignore.case = T) == T ~ "Weather",
+#     grepl("rain",what_to_plot[[1]], ignore.case = T) == T ~ "Rain",
+#     grepl("well",what_to_plot[[1]], ignore.case = T) == T ~ "Well",
+#   )
+#   if (length(what_to_plot) > 1) {
+#     # second variable
+#     folder[[2]] <- case_when(
+#       grepl("level",what_to_plot[[2]], ignore.case = T) == T ~ "Flumes",
+#       grepl("temperature",what_to_plot[[2]], ignore.case = T) == T ~ "Weather",
+#       grepl("rain",what_to_plot[[2]], ignore.case = T) == T ~ "Rain",
+#       grepl("well",what_to_plot[[2]], ignore.case = T) == T ~ "Well",
+#     )
+#   }
+#   return(folder)
+# }
 
 # function to select correct row from look-up table
 rows_select <- function(what_to_plot, lookup) {
@@ -101,25 +198,23 @@ rows_select <- function(what_to_plot, lookup) {
   return(funs_rows_select)
 }
 
-# function to create paths
-path_fun <- function(main_path, folder_data, which_catch, specific,
-                     fun_data) {
-  if (is.null(specific) == F) {
-    path <- paste(main_path, folder_data, which_catch, specific,
-                  sep="/")
-  } else {
-    # number of paths needed
-    no_paths <- length(na.omit(fun_data[(ncol(fun_data)-3):ncol(fun_data)]))
-    # empty vector
-    path <- rep(NA, no_paths)
-    for (i in 1:length(path)) {
-      # not very elegant, needs vectorisation
-      path[i] <- paste(main_path, folder_data, which_catch,
-                       fun_data[i + 6], sep="/") # hard coded 5
-    }
-  }
-  return(path)
-}    
+# # function to create paths
+# path_fun <- function(main_path, folder_in, which_catch, specific,
+#                      fun_data) {
+#   if (is.null(specific) == F) {
+#     path <- paste(main_path, folder_in, which_catch, specific,
+#                   sep="/")
+#   } else {
+#     # empty vector
+#     path <- list()
+#     paths <- fun_data[6:10] # hard coded
+#       # not very elegant, needs vectorisation
+#       path[[i]] <- map2(folder_in, paths, paste, main_path, which_catch,
+#                        sep="/") # hard coded 5
+#     }
+#   }
+#   return(path)
+# }    
 
 # # function to find all filenames in the folder
 # find_file <- function(path_a, which_site, specific, fun_data) {
@@ -140,16 +235,17 @@ path_fun <- function(main_path, folder_data, which_catch, specific,
 
 
 
-# Use acronym at the first part of the file
-# function can be changed when we agree on file names
-file_name_select <- function(path_a, which_site) {
-  files <- list.files(path = path_a, pattern = "csv")
-  files_ini <- substr(files, 1,
-                      (nchar(files) - 10))
-  #browser()
-  file_select <- files[grep(which_site, files_ini)]
-  return(file_select)
-}
+# # Use acronym at the first part of the file
+# # function can be changed when we agree on file names
+# file_name_select <- function(path_a, which_site) {
+#   browser()
+#   files <- list.files(path = path_a, pattern = "csv")
+#   files_ini <- substr(files, 1,
+#                       (nchar(files) - 10))
+#   #browser()
+#   file_select <- files[grep(which_site, files_ini)]
+#   return(file_select)
+# }
 
 # # tester
 # main_path <- "SampleFiles"

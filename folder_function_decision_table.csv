@@ -1,12 +1,9 @@
-variable 1,variable 2,primary_read,alternative_prim_read,secondary_read,alternative_sec_read,prim_folder,alt_prim_folder,second_folder,alt_second_folder
-level,temperature,read_hobo,read_stevens,read_hobo_rain,read_weather,HoboU20OutsideWell,StevensHoboU12,Automatic,NA
-level,flow,read_hobo,read_stevens,read_hobo,read_stevens,HoboU20OutsideWell,StevensHoboU12,HoboU20OutsideWell,StevensHoboU12
-level,rain,read_hobo,read_stevens,read_hobo_rain,read_weather,HoboU20OutsideWell,StevensHoboU12,Automatic,NA
-rain,flow,read_hobo_rain,read_weather,NA,NA,Automatic,NA,NA,NA
-level,NA,read_hobo,read_stevens,NA,NA,HoboU20OutsideWell,StevensHoboU12,NA,NA
-flow,NA,read_hobo,read_stevens,NA,NA,HoboU20OutsideWell,StevensHoboU12,NA,NA
-temperature,NA,read_hobo_rain,read_weather,NA,NA,Automatic,NA,NA,NA
-rain,NA,read_hobo_rain,read_weather,NA,NA,Automatic,NA,NA,NA
-groundwater level,NA,read_well,NA,NA,NA,Automatic,NA,NA,NA
-groundwater level,rain,read_well,NA,read_hobo_rain,read_weather,Automatic,NA,Automatic,NA
-flow,groundwater level,read_hobo,read_stevens,read_well,NA,HoboU20OutsideWell,StevensHoboU12,Automatic,NA
+variable,catchments,primary_read,alternative_prim_read,alternative_prim_read2
+level,V1V2,isco,stevens,hobou20
+level,V3V4,isco,hobou20,stevens
+weather,NA,weather,NA,NA 
+rain,NA,weather,hobo_rain,NA
+flow,V1V2,isco,stevens,hobou20
+flow,V3V4,isco,hobou20,stevens
+temperature,NA ,weather,hobo_rain,NA
+groundwater level,,read_well,NA,NA

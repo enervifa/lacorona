@@ -7,7 +7,7 @@ require(lubridate)
 
 # --- HOBOU20 ----
 
-read_hobo <- function(filename, input_dir ,
+read_hobou20 <- function(filename, input_dir ,
                           coltypes = cols("d","c","d","d","d","d","c","c","c","c"),
                           skip = 1, plotit = F) {
 #browser()
@@ -39,7 +39,7 @@ read_hobo <- function(filename, input_dir ,
 # read_dir <- "SampleFiles/Flumes/V1V2/HoboU20OutsideWell"
 # filenames <- dir(path = read_dir, pattern = ".csv")
 # 
-# test <- read_hobo(filename = filenames[1], input_dir = read_dir,
+# test <- read_hobou20(filename = filenames[1], input_dir = read_dir,
 #                       plotit = T) 
 # head(test)
 
