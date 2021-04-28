@@ -47,10 +47,10 @@ read_data <- function(main_type, which_catch,
     data_r <- do.call(fun,
                       list(which_catch = which_catch, 
                            main_p = main_path))
-    if (missing == F & length(data_r) > 1) {
-      data_r <- data_r[[1]]
+    if (main_type == "Flumes") {
+      data_r <- bind_rows(data_r)
     }
-    
+
     # check if weather data or rain data is needed
     if (main_type != "Rain" & grepl("Rainfall", what_to_plot) == T) {
       data_rain <- read_rain(which_catch = which_catch,
@@ -122,7 +122,7 @@ read_flume <- function(which_catch,
   is <- grep("isco",logger_order)
   data[[is]] <- data[[is]] %>%
     mutate(`Water Level, meters` = `Level (ft)`*0.3048) %>%
-    select(`Date and Time`, `Water Level, meters`)
+    select(`Date and Time`, `Water Level, meters`, logger)
              
   
   # Convert the stevens logger from volt to depth
@@ -135,7 +135,7 @@ read_flume <- function(which_catch,
                which_catch == 3 ~ 3.266 -1.28761*`Volt, V`,
                which_catch == 2 ~ -0.65 + 1.2*`Volt, V`
              )) %>%
-    select(`Date and Time`,`Water Level, meters`, `Temp, °C`)
+    select(`Date and Time`,`Water Level, meters`, logger)
   
   if (fill_missing == T) {
   ## -----------------------------------------
@@ -148,6 +148,48 @@ read_flume <- function(which_catch,
   # return list of logger data
   return(data)
 }
+
+# # test
+# data_r <- do.call(read_flume,
+#                   list(which_catch = 1, 
+#                        main_p = "SampleFiles"))
+# str(data_r)
+
+# flow conversion for flumes
+# HL flumes is simply an equation
+HL_convert <- function(H) {
+  # using http://www2.alterra.wur.nl/Internet/webdocs/ilri-publicaties/publicaties/Pub20/pub20-h7.2.pdf
+  flow <- 0.3160 + 2.3466*log(H) + 0.2794*log(H)^2
+}
+# But what to do with the emergency spillway?
+
+Tri_flume_convert <- function(H, catch = which_catch, 
+                              main_p = main_path) {
+  # need to read in the velocity
+  # find the list of files
+  filelist <- list.files(path=paste0(main_p,"/Flumes/V3V4/ISCOsampler"),
+                         pattern =".vel")
+  data_v <- read_isco_velocity(filename =filelist[catch-2], 
+                            input_dir = read_path) 
+  # now we need to know the width of the flume
+  width = 3*0.3048 # convert to m
+  flow <- width*H*(data_v$`velocity (ft/s)`*0.3048)
+  return(flow)
+}
+
+flow_convert <- function(data_in, which_catch) {
+   # convert level in meters to m3/sec
+  # HL flume
+  if (which_catch < 3) {
+    data_in <- data_in %>% 
+      mutate(`Flow (m3/sec)` = HL_convert(`Water Level, meters`))
+  } else {
+    data_in <- data_in %>%
+      mutate(`Flow (m3/sec)` = Tri_flume_convert(`Water Level, meters`, catch = which_catch, 
+                                                             main_p = main_path)) 
+  }
+}
+
 
 read_well <- function(which_catch,
                        fill_missing = F, main_p = main_path, Automatic = T) {

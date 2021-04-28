@@ -32,7 +32,8 @@ read_hobou20 <- function(filename, input_dir ,
             geom_line() + facet_wrap(~Measures, ncol = 2, scales = "free")
         print(p)
       }
-  return(file_out)
+  return(file_out %>% select(`Date and Time`,
+                             `Water Level, meters`))
 }
 
 # # testing
@@ -68,7 +69,7 @@ read_stevens <- function(filename, input_dir,
       geom_line() + facet_wrap(~Measures, ncol = 2, scales = "free")
     print(p)
   }
-  return(file_out)
+  return(file_out %>% select(`Date and Time`, `Volt, V`))
 }
 
 # # testing
@@ -102,7 +103,7 @@ read_isco <- function(filename, input_dir ,
       geom_line() + facet_wrap(~Measures, ncol = 2, scales = "free")
     print(p)
   }
-  return(file_out %>% select(`Time and Date`,`Level (ft)`))
+  return(file_out %>% select(`Date and Time`,`Level (ft)`))
 }
 
 # # testing
@@ -112,6 +113,34 @@ read_isco <- function(filename, input_dir ,
 # test_isco <- read_isco(filename = filenames[1], input_dir = read_dir,
 #                   plotit = T)
 # head(test_isco)
+
+# --- ISCO velocity ----
+read_isco_velocity <- function(filename, input_dir , 
+                      coltypes = cols("c","i","i"),
+                      skip = 7, plotit = F) {
+  #browser()
+  file_read <- read_csv(paste(input_dir,filename,sep="/"),
+                        col_names =F,
+                        skip = skip, col_types = coltypes)
+  colnames(file_read) <- c("Date and Time", "Sample",
+                           "velocity (ft/s)")
+  file_out <- file_read %>%
+    mutate(`Date and Time` = time_convert(`Date and Time`)) %>%
+    mutate(`velocity (ft/s)` = as.numeric(paste(Sample, `velocity (ft/s)`, sep = ".")))
+  
+  if (plotit == T) {
+    p <- file_out %>%
+      na.omit() %>%
+      pivot_longer(cols = `Sample`:`velocity (ft/s)`,
+                   names_to = "Measures", values_to ="values") %>%
+      ggplot(aes(`Date and Time`,values, colour = Measures)) +
+      geom_line() + facet_wrap(~Measures, ncol = 2, scales = "free")
+    print(p)
+  }
+  return(file_out %>% select(`Date and Time`,`velocity (ft/s)`))
+}
+
+
 
 ## Barometric pressure (V3/V4)
 
