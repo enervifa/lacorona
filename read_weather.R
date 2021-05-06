@@ -11,10 +11,10 @@ c_names <- c("id", "julian", "time", "battery voltage", "Temperature °C", "RelH"
 
 
 # Read in the weather station files
-read_weather <- function(filename, dir ,
+read_hobo_weather <- function(filename, dir ,
                          coltypes = cols("d","c","c","d","d","d","d","d","d","d","d"),
                            plotit = F) {
-browser()
+#browser()
   file_read <- read_csv(paste(dir,filename,sep="/"),
                         col_names=c_names, col_types = coltypes)
   
@@ -40,13 +40,13 @@ browser()
   return(file_out)
 }          
 
-# testing read_weather
-read_dir <- "SampleFiles/Weather"
-filename <- dir(path = read_dir, pattern = ".dat")
-
-test_weather<- read_weather(filename[1],dir = read_dir,
-                                plotit = T) 
-
+# # testing read_weather
+# read_dir <- "SampleFiles/Weather"
+# filename <- dir(path = read_dir, pattern = ".dat")
+# 
+# test_weather<- read_weather(filename[1],dir = read_dir,
+#                                 plotit = T) 
+# 
 
 
 # auxillary function to fix the dropped 0's in the time values

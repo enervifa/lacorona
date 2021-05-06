@@ -6,7 +6,7 @@
 require(tidyverse)
 require(lubridate)
 
-# Read in the hobo raingauhge files
+# Read in the hobo raingauge files
 read_hobo_rain <- function(filename, dir ,
                           coltypes = cols("d","c","d","d","c","c","c","c"),
                           skip = 1, plotit = F) {
@@ -85,19 +85,19 @@ return(file_out)
 #           }
 # 
           
-          # testing read_hobo_rain
-          read_dir <- "SampleFiles/Rain/Automatic"
-          filename <- dir(path = read_dir, pattern = ".csv")
-          
-          test_hobo_rain<- read_hobo_rain(filename[1],dir = read_dir,
-                                           plotit = T) 
-        
-          
-          
-          # testing read_hobo_rain2
-        
-          test_hobo_rain<- read_hobo_rain2(filename[1],dir = read_dir,
-                                           plotit = T) 
-         
+          # # testing read_hobo_rain
+          # read_dir <- "SampleFiles/Rain/Automatic"
+          # filename <- dir(path = read_dir, pattern = ".csv")
+          # 
+          # test_hobo_rain<- read_hobo_rain(filename[1],dir = read_dir,
+          #                                  plotit = T) 
+          # 
+          # 
+          # 
+          # # testing read_hobo_rain2
+          # 
+          # test_hobo_rain<- read_hobo_rain2(filename[1],dir = read_dir,
+          #                                  plotit = T) 
+          # 
           
           

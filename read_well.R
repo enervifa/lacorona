@@ -1,19 +1,5 @@
 # File to read in the groundwater well data
 # function is different from Flume Hobo function
-# # it needs the time_convert function
-# 
-# time_convert2 <- function(text_input) {
-#   text_out <- str_sub(text_input,1,19)
-#   text_out <- ifelse(str_detect(text_input, "a.m.") == T,
-#                      str_c(text_out," AM"),
-#                      str_c(text_out," PM"))
-#   text_out <- parse_date_time(text_out,
-#                               "mdy IMS Op",
-#                               tz = "America/Argentina/Buenos_Aires")
-#   return(text_out)
-# }
-
-
 
 # Functions to read in all the water and well data
 
@@ -49,10 +35,10 @@ read_hobo_well <- function(filename, input_dir ,
   return(file_out)
 }
 
-# testing
-read_dir <- "SampleFiles/Wells/Automatic"
-filenames <- dir(path = read_dir, pattern = ".csv")
-
-test_well <- read_hobo_well(filename = filenames[1], input_dir = read_dir,
-                  plotit = T) 
-head(test_well)
+# # testing
+# read_dir <- "SampleFiles/Wells/Automatic"
+# filenames <- dir(path = read_dir, pattern = ".csv")
+# 
+# test_well <- read_hobo_well(filename = filenames[1], input_dir = read_dir,
+#                   plotit = T) 
+# head(test_well)

@@ -7,7 +7,7 @@ require(lubridate)
 
 # --- HOBOU20 ----
 
-read_hobo <- function(filename, input_dir ,
+read_hobou20 <- function(filename, input_dir ,
                           coltypes = cols("d","c","d","d","d","d","c","c","c","c"),
                           skip = 1, plotit = F) {
 #browser()
@@ -32,16 +32,17 @@ read_hobo <- function(filename, input_dir ,
             geom_line() + facet_wrap(~Measures, ncol = 2, scales = "free")
         print(p)
       }
-  return(file_out)
+  return(file_out %>% select(`Date and Time`,
+                             `Water Level, meters`))
 }
 
-# testing
-read_dir <- "SampleFiles/Flumes/V1V2/HoboU20OutsideWell"
-filenames <- dir(path = read_dir, pattern = ".csv")
-
-test <- read_hobo(filename = filenames[1], input_dir = read_dir,
-                      plotit = T) 
-head(test)
+# # testing
+# read_dir <- "SampleFiles/Flumes/V1V2/HoboU20OutsideWell"
+# filenames <- dir(path = read_dir, pattern = ".csv")
+# 
+# test <- read_hobou20(filename = filenames[1], input_dir = read_dir,
+#                       plotit = T) 
+# head(test)
 
 # --- HOBOU12--- Stevens
 
@@ -68,16 +69,16 @@ read_stevens <- function(filename, input_dir,
       geom_line() + facet_wrap(~Measures, ncol = 2, scales = "free")
     print(p)
   }
-  return(file_out)
+  return(file_out %>% select(`Date and Time`, `Volt, V`))
 }
 
-# testing
-read_dir <- "SampleFiles/Flumes/V1V2/StevensHoboU12"
-filenames <- dir(path = read_dir, pattern = ".csv")
-
-test_stevens <- read_stevens(filenames[1], input_dir = read_dir,
-                  plotit = T)
-head(test_stevens)
+# # testing
+# read_dir <- "SampleFiles/Flumes/V1V2/StevensHoboU12"
+# filenames <- dir(path = read_dir, pattern = ".csv")
+# 
+# test_stevens <- read_stevens(filenames[1], input_dir = read_dir,
+#                   plotit = T)
+# head(test_stevens)
 
 # --- ISCO ----
 read_isco <- function(filename, input_dir , 
@@ -89,10 +90,10 @@ read_isco <- function(filename, input_dir ,
                         skip = skip, col_types = coltypes)
   colnames(file_read) <- c("Date and Time", "Sample",
                                 "Level (ft)")
-  file_read <- file_read %>%
-    mutate(`Date and Time` = time_convert(`Date and Time`)) 
-  file_out <- file_read
-  
+  file_out <- file_read %>%
+    mutate(`Date and Time` = time_convert(`Date and Time`)) %>%
+    mutate(`Level (ft)` = as.numeric(paste(Sample, `Level (ft)`, sep = ".")))
+
   if (plotit == T) {
     p <- file_out %>%
       na.omit() %>%
@@ -102,16 +103,44 @@ read_isco <- function(filename, input_dir ,
       geom_line() + facet_wrap(~Measures, ncol = 2, scales = "free")
     print(p)
   }
-  return(file_out)
+  return(file_out %>% select(`Date and Time`,`Level (ft)`))
 }
 
-# testing
-read_dir <- "SampleFiles/Flumes/V1V2/ISCOSampler"
-filenames <- dir(path = read_dir, pattern = ".csv")
+# # testing
+# read_dir <- "SampleFiles/Flumes/V1V2/ISCOSampler"
+# filenames <- dir(path = read_dir, pattern = ".csv")
+# 
+# test_isco <- read_isco(filename = filenames[1], input_dir = read_dir,
+#                   plotit = T)
+# head(test_isco)
 
-test_isco <- read_isco(filename = filenames[1], input_dir = read_dir,
-                  plotit = T) 
-head(test_isco)
+# --- ISCO velocity ----
+read_isco_velocity <- function(filename, input_dir , 
+                      coltypes = cols("c","i","i"),
+                      skip = 7, plotit = F) {
+  #browser()
+  file_read <- read_csv(paste(input_dir,filename,sep="/"),
+                        col_names =F,
+                        skip = skip, col_types = coltypes)
+  colnames(file_read) <- c("Date and Time", "Sample",
+                           "velocity (ft/s)")
+  file_out <- file_read %>%
+    mutate(`Date and Time` = time_convert(`Date and Time`)) %>%
+    mutate(`velocity (ft/s)` = as.numeric(paste(Sample, `velocity (ft/s)`, sep = ".")))
+  
+  if (plotit == T) {
+    p <- file_out %>%
+      na.omit() %>%
+      pivot_longer(cols = `Sample`:`velocity (ft/s)`,
+                   names_to = "Measures", values_to ="values") %>%
+      ggplot(aes(`Date and Time`,values, colour = Measures)) +
+      geom_line() + facet_wrap(~Measures, ncol = 2, scales = "free")
+    print(p)
+  }
+  return(file_out %>% select(`Date and Time`,`velocity (ft/s)`))
+}
+
+
 
 ## Barometric pressure (V3/V4)
 
@@ -140,14 +169,14 @@ read_bar <- function(filename, input_dir ,
   return(file_out)
 }
 
-# testing
-read_dir <- "SampleFiles/Flumes/V3V4/BarometricPressure"
-filenames <- dir(path = read_dir, pattern = ".csv")
-
-test_bar <- read_bar(filename = filenames[1], input_dir = read_dir,
-                  plotit = T) 
-head(test_bar)
-
+# # testing
+# read_dir <- "SampleFiles/Flumes/V3V4/BarometricPressure"
+# filenames <- dir(path = read_dir, pattern = ".csv")
+# 
+# test_bar <- read_bar(filename = filenames[1], input_dir = read_dir,
+#                   plotit = T) 
+# head(test_bar)
+# 
 
 
 
