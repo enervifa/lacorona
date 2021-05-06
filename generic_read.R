@@ -14,7 +14,7 @@ source(paste(script_dir,"read_well.R",sep="/"))
 # What do you want to read?
 main_type <- "Flumes"
 which_catch <- 1 # or 2, 3 4
-what_to_plot <- list("Water Level (m)","Flow (m3/sec)")
+what_to_plot <- c("Water Level, meters","Flow (m3/sec)")
 
 ### ---- use case 2
 # main_type <- "Flumes"
@@ -50,38 +50,57 @@ read_data <- function(main_type, which_catch,
     if (main_type == "Flumes") {
       data_r <- bind_rows(data_r)
     }
-
+    
+    # number of data in "isco" file
+    isco_data <- data_r %>% filter(logger == "isco")
+    n_isco <- nrow(isco_data)
+    # if there are no missing data
+    if (fill_missing == F | nrow(na.omit(isco_data)) == n_isco) {
+      data_r <- isco_data
+    }
+    
+    
     # check if weather data or rain data is needed
-    if (main_type != "Rain" & grepl("Rainfall", what_to_plot) == T) {
+    if (main_type != "Rain" || any(grepl("Rainfall", what_to_plot)) == T) {
       data_rain <- read_rain(which_catch = which_catch,
                              main_p = main_path)
     }
-    if (main_type != "Weather" & grepl("Temperature", what_to_plot) == T) {
+    if (main_type != "Weather" || any(grepl("Temperature", what_to_plot)) == T) {
       data_w <- read_weather(which_catch = which_catch,
                              main_p = main_path)
     }
+#browser()
+    # add the flow data if plotting of flow data is required
+    if (any(grepl("Flow",what_to_plot))==T) {
+      data_plotting <- flow_convert(data_r, which_catch = which_catch)
+    } else {
+      data_plotting <- data_r
+    }
     
-    data_plotting <- data_r
+        
     
     # merge with rainfall data if exists
-    if (exists(data_rain)) {
+    if (exists("data_rain")) {
       data_plotting <- left_join(data_plotting,data_rain, 
-                                 by = `Date and Time`)
+                                 by = "Date and Time")
     }
     # merge with weather data if exists
-    if (exists(data_w)) {
+    if (exists("data_w")) {
       data_plotting <- left_join(data_plotting,data_w, 
-                                 by = `Date and Time`)
+                                 by = "Date and Time")
     }
     
-  # manipulate data to plot exactly what is required
-  
+    # manipulate data to plot exactly what is required
+  data_plotting %>%
+    pivot_longer(c(what_to_plot[1],what_to_plot[2]), values_to = "Measurements",
+                 names_to = "Variables") %>%
+    ggplot(aes(`Date and Time`,Measurements)) + geom_line() +
+    theme_bw() + facet_wrap(~Variables, scales="free")
 
 }
 
 # testing
-read_data(which_catch,
-          which_site = 1, 
+read_data(main_type,which_catch,
           what_to_plot)
 
 
@@ -113,7 +132,8 @@ read_flume <- function(which_catch,
     # use do.call to call the different functions
     data[[i]] <- do.call(paste0("read_",logger_order[i]),
                          # figure out which file to read
-                         list(filename =filelist[ifelse(catch < 3,catch, catch - 2)], 
+                         list(filename =filelist[ifelse(which_catch < 3,
+                                                        which_catch, which_catch - 2)], 
                               input_dir = read_path)) %>% 
       # add a column with the name of logger
       mutate(logger = logger_order[i])
@@ -159,7 +179,8 @@ read_flume <- function(which_catch,
 # HL flumes is simply an equation
 HL_convert <- function(H) {
   # using http://www2.alterra.wur.nl/Internet/webdocs/ilri-publicaties/publicaties/Pub20/pub20-h7.2.pdf
-  flow <- 0.3160 + 2.3466*log(H) + 0.2794*log(H)^2
+  flow <- exp(0.3160 + 2.3466*log(H) + 0.2794*log(H)^2)
+  return(flow)
 }
 # But what to do with the emergency spillway?
 
@@ -197,7 +218,7 @@ read_well <- function(which_catch,
                        ifelse(Automatic ==T, "Automatic", "Manual"), sep="/")
     # the filename from the main path (assuming "automatic")
     filelist <- list.files(read_path, pattern = "csv")
-    data <- read_hobo_well(filelist[catch],read_path)
+    data <- read_hobo_well(filelist[which_catch],read_path)
   
 
   if (fill_missing == T) {
@@ -226,7 +247,7 @@ read_rain <- function(which_catch,
                      ifelse(Automatic ==T, "Automatic", "Manual"), sep="/")
   # the filename from the main path (assuming "automatic")
   filelist <- list.files(read_path, pattern = "csv")
-  data <- read_hobo_rain(filelist[catch],read_path)
+  data <- read_hobo_rain(filelist[which_catch],read_path)
   
   
   if (fill_missing == T) {
@@ -241,11 +262,12 @@ read_rain <- function(which_catch,
 # read_weather auxillary function
 read_weather <- function(which_catch,
                       fill_missing = F, main_p = main_path, Automatic = T) {
+  #browser()
   read_path <- paste(main_p,"Weather",sep="/")
   # the filename from the main path (assuming "automatic")
-  file <- list.files(read_path, pattern = "csv")
+  file <- list.files(read_path, pattern = "dat")
   # this needs to be extended for multiple files and combining
-  data <- read_hobo_weather(filelist,read_path)
+  data <- read_hobo_weather(file,read_path)
   
   
   if (fill_missing == T) {
