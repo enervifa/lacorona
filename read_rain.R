@@ -8,9 +8,13 @@ require(lubridate)
 
 # Read in the hobo raingauge files
 read_hobo_rain <- function(filename, dir ,
-                          coltypes = cols("d","c","d","d","c","c","c","c"),
+                          #coltypes = cols("d","c","d","d","c","c","c","c"),
                           skip = 1, plotit = F) {
 #browser()
+  # messy, but currently the only way I can do this
+  if(grepl("R1",substr(filename,1,2), ignore.case =T)) coltypes <- cols("d","c","d","d","c","c","c","c")
+  if(grepl("R4",substr(filename,1,2), ignore.case =T)) coltypes <- cols("d","c","d","d","c","c","c")
+  
       file_read <- read_csv(paste(dir,filename,sep="/"),
                             skip = skip, col_types = coltypes)
       file_read <- file_read %>%

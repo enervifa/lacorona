@@ -48,35 +48,45 @@ read_hobou20 <- function(filename, input_dir ,
 
 # read the stevens logger
 read_stevens <- function(filename, input_dir,
-                         coltypes = cols("d","c","d","d","c","c","c","c","c"),
                          skip = 1, plotit = F) {
+  #browser()
+  # messy, but currently the only way I can do this
+  if(grepl("V1",substr(filename,1,2), ignore.case =T)) coltypes <- cols("d","c","d","d","c","c","c","c","c")
+  if(grepl("V2",substr(filename,1,2), ignore.case =T)) coltypes <- cols("d","c","d","d","c","c","c")
+  if(grepl("V3",substr(filename,1,2), ignore.case =T)) coltypes <- cols("d","c","d","c","c","c","c","c")
+  if(grepl("V4",substr(filename,1,2), ignore.case =T)) coltypes <- cols("d","c","d","c","c","c")
+  
+  
   
   file_read <- read_csv(paste(input_dir,filename,sep="/"),
                         skip = skip, col_types = coltypes)
   file_read <- file_read %>%
     mutate(`Date and Time` = mdy_hms(`Date Time, GMT-03:00`,
                                      tz = "America/Argentina/Buenos_Aires")) 
-  colnames(file_read)[3:4] <- c("Volt, V", "Temp, °C")
-  file_out <- file_read %>%
-    select(`Date and Time`, `Volt, V`,`Temp, °C`)
+  colnames(file_read)[3] <- "Volt, V"
+  # if (grep("Temp, °C", colnames(file_read)[4]) == T) {
+  #   colnames(file_read)[4] <- "Temp, °C"
+  #   file_out <- file_read %>%
+  #     select(`Date and Time`, `Volt, V`,`Temp, °C`)
+  # } else {
+    file_out <- file_read %>%
+      select(`Date and Time`, `Volt, V`)
+#  }
   
   if (plotit == T) {
     p <- file_out %>%
-      na.omit() %>%
-      pivot_longer(cols = `Volt, V`:`Temp, °C`,
-                   names_to = "Measures", values_to ="values") %>%
-      ggplot(aes(`Date and Time`,values, colour = Measures)) +
-      geom_line() + facet_wrap(~Measures, ncol = 2, scales = "free")
+      ggplot(aes(`Date and Time`,`Volt, V`)) + geom_line() +
+      theme_bw()
     print(p)
   }
   return(file_out %>% select(`Date and Time`, `Volt, V`))
 }
 
-# # testing
+# testing
 # read_dir <- "SampleFiles/Flumes/V1V2/StevensHoboU12"
 # filenames <- dir(path = read_dir, pattern = ".csv")
 # 
-# test_stevens <- read_stevens(filenames[1], input_dir = read_dir,
+# test_stevens <- read_stevens(filenames[2], input_dir = read_dir,
 #                   plotit = T)
 # head(test_stevens)
 

@@ -13,7 +13,7 @@ source(paste(script_dir,"read_well.R",sep="/"))
 ### ----- use case 1
 # What do you want to read?
 main_type <- "Flumes"
-which_catch <- 1 # or 2, 3 4
+which_catch <- 4 # or 2, 3 4
 what_to_plot <- c("Water Level, meters","Flow (m3/sec)")
 
 ### ---- use case 2
@@ -51,12 +51,21 @@ read_data <- function(main_type, which_catch,
       data_r <- bind_rows(data_r)
     }
     
+    
+    if (fill_missing == T) {
+      ## -----------------------------------------
+      ## in here do something with fill_missing = T
+      ## ------------------------------------------
+      # start with looking at the isco data
+      test <- sum(ifelse(is.na(data[[1]]$`Level (ft)`)==T,1,0))
+      
+    }
     # number of data in "isco" file
     isco_data <- data_r %>% filter(logger == "isco")
     n_isco <- nrow(isco_data)
     # if there are no missing data
     if (fill_missing == F | nrow(na.omit(isco_data)) == n_isco) {
-      data_r <- isco_data
+      data_r <- data_r %>% filter(logger == "isco")
     }
     
     
@@ -72,7 +81,8 @@ read_data <- function(main_type, which_catch,
 #browser()
     # add the flow data if plotting of flow data is required
     if (any(grepl("Flow",what_to_plot))==T) {
-      data_plotting <- flow_convert(data_r, which_catch = which_catch)
+      data_plotting <- flow_convert(data_r, catch = which_catch,
+                                    path = main_path)
     } else {
       data_plotting <- data_r
     }
@@ -89,7 +99,7 @@ read_data <- function(main_type, which_catch,
       data_plotting <- left_join(data_plotting,data_w, 
                                  by = "Date and Time")
     }
-    
+    browser()
     # manipulate data to plot exactly what is required
   data_plotting %>%
     pivot_longer(c(what_to_plot[1],what_to_plot[2]), values_to = "Measurements",
@@ -107,7 +117,7 @@ read_data(main_type,which_catch,
 # Auxiliary functions
 # read_flume, the output of this function is a list with data from all loggers associated with the flumes
 read_flume <- function(which_catch,
-                            fill_missing = F, main_p = main_path) {
+                            main_p = main_path) {
   if (which_catch < 3) {
     path <- paste(main_p,"Flumes/V1V2", sep="/")
     logger_order <- c("isco","stevens","hobou20")
@@ -121,6 +131,7 @@ read_flume <- function(which_catch,
   dir_list <- dir_list[!grepl("Emergency",dir_list)]
   # Create an empty data list
   data <- list()
+
   # run down logger order to read in the data from each logger
   # this for loop needs to be rewritten as a function and using map
   for (i in 1:length(logger_order)){
@@ -130,6 +141,7 @@ read_flume <- function(which_catch,
     # find the list of files
     filelist <- list.files(path=read_path,pattern ="csv")
     # use do.call to call the different functions
+    # needs to be extended to read files with multiple dates
     data[[i]] <- do.call(paste0("read_",logger_order[i]),
                          # figure out which file to read
                          list(filename =filelist[ifelse(which_catch < 3,
@@ -138,6 +150,7 @@ read_flume <- function(which_catch,
       # add a column with the name of logger
       mutate(logger = logger_order[i])
   }
+  names(data) <- logger_order
   # convert the isco logger data from ft to depth in meters
   is <- grep("isco",logger_order)
   data[[is]] <- data[[is]] %>%
@@ -157,14 +170,7 @@ read_flume <- function(which_catch,
              )) %>%
     select(`Date and Time`,`Water Level, meters`, logger)
   
-  if (fill_missing == T) {
-  ## -----------------------------------------
-  ## in here do something with fill_missing = T
-  ## ------------------------------------------
-  # start with looking at the isco data
-  test <- sum(ifelse(is.na(data[[1]]$`Level (ft)`)==T,1,0))
-    
-  }
+ 
   # return list of logger data
   return(data)
 }
@@ -184,30 +190,34 @@ HL_convert <- function(H) {
 }
 # But what to do with the emergency spillway?
 
-Tri_flume_convert <- function(H, catch = which_catch, 
-                              main_p = main_path) {
+Tri_flume_convert <- function(data_H, catch_in, 
+                              main_p) {
   # need to read in the velocity
   # find the list of files
+  #browser()
   filelist <- list.files(path=paste0(main_p,"/Flumes/V3V4/ISCOsampler"),
                          pattern =".vel")
-  data_v <- read_isco_velocity(filename =filelist[catch-2], 
-                            input_dir = read_path) 
+  data_v <- read_isco_velocity(filename =filelist[catch_in-2], 
+                            input_dir = paste0(main_p,"/Flumes/V3V4/ISCOsampler")) 
+  
+  data_all <- left_join(data_H,data_v)
   # now we need to know the width of the flume
   width = 3*0.3048 # convert to m
-  flow <- width*H*(data_v$`velocity (ft/s)`*0.3048)
+  flow <- width*data_all$`Water Level, meters`*(data_all$`velocity (ft/s)`*0.3048)
   return(flow)
 }
 
-flow_convert <- function(data_in, which_catch) {
+flow_convert <- function(data_in, catch, path) {
    # convert level in meters to m3/sec
   # HL flume
+  #browser()
   if (which_catch < 3) {
     data_in <- data_in %>% 
       mutate(`Flow (m3/sec)` = HL_convert(`Water Level, meters`))
   } else {
     data_in <- data_in %>%
-      mutate(`Flow (m3/sec)` = Tri_flume_convert(`Water Level, meters`, catch = which_catch, 
-                                                             main_p = main_path)) 
+      mutate(`Flow (m3/sec)` = Tri_flume_convert(data_in, catch_in = catch, 
+                                                             main_p = path)) 
   }
 }
 
@@ -218,6 +228,7 @@ read_well <- function(which_catch,
                        ifelse(Automatic ==T, "Automatic", "Manual"), sep="/")
     # the filename from the main path (assuming "automatic")
     filelist <- list.files(read_path, pattern = "csv")
+    # needs to be extended to read multiple date files
     data <- read_hobo_well(filelist[which_catch],read_path)
   
 
@@ -242,12 +253,12 @@ read_rain <- function(which_catch,
     which_catch <- 4
     message("using raingauge from catchment 4")
   }
-  
+  #browser()
   read_path <- paste(main_p,"Rain",
                      ifelse(Automatic ==T, "Automatic", "Manual"), sep="/")
   # the filename from the main path (assuming "automatic")
   filelist <- list.files(read_path, pattern = "csv")
-  data <- read_hobo_rain(filelist[which_catch],read_path)
+  data <- read_hobo_rain(filelist[ifelse(which_catch==1,1,2)],read_path)
   
   
   if (fill_missing == T) {
