@@ -11,17 +11,17 @@ source(paste(script_dir,"read_weather.R",sep="/"))
 source(paste(script_dir,"read_well.R",sep="/"))
 
 ### ----- use case 1
-# What do you want to read?
-main_type <- "Flumes"
-which_catch <- 4 # or 2, 3 4
-what_to_plot <- c("Water Level, meters","Flow (m3/sec)")
+# # What do you want to read?
+# main_type <- "Flumes"
+# which_catch <- 4 # or 2, 3 4
+# what_to_plot <- c("Water Level, meters","Flow (m3/sec)")
 
 ### ---- use case 2
-# main_type <- "Flumes"
-# which_catch <- 1 # or 2, 3 4
-# what_to_plot <- list("Level","Temperature")
-# specific <- "HOBOU20"
-# ISCO, HOBOU20, HOBOU12(Stevens), Emergency (only for V1V2)
+main_type <- "Flumes"
+which_catch <- 1 # or 2, 3 4
+what_to_plot <- list("Water Level, meters","Temperature")
+specific_in <- "HOBOU20"
+# or specific can be ISCO, HOBOU20, HOBOU12(Stevens), Emergency (only for V1V2)
 
 ### --- use case 3
 # main_type <- "Rain"
@@ -34,7 +34,7 @@ read_data <- function(main_type, which_catch,
                       what_to_plot, main_path = "SampleFiles",
                       specific = NULL,
                       fill_missing = F) {
-
+ #browser()
   # interpret the main type to select the folder
     fun <- case_when(
       main_type == "Flumes" ~ "read_flume",
@@ -46,7 +46,7 @@ read_data <- function(main_type, which_catch,
     # read in the main data
     data_r <- do.call(fun,
                       list(which_catch = which_catch, 
-                           main_p = main_path))
+                           main_p = main_path, specific = specific))
     if (main_type == "Flumes") {
       data_r <- bind_rows(data_r)
     }
@@ -56,7 +56,7 @@ read_data <- function(main_type, which_catch,
       ## -----------------------------------------
       ## in here do something with fill_missing = T
       ## ------------------------------------------
-      # start with looking at the isco data
+      # start with looking at the isco data, which has no missing
       test <- sum(ifelse(is.na(data[[1]]$`Level (ft)`)==T,1,0))
       
     }
@@ -76,9 +76,10 @@ read_data <- function(main_type, which_catch,
     }
     if (main_type != "Weather" || any(grepl("Temperature", what_to_plot)) == T) {
       data_w <- read_weather(which_catch = which_catch,
-                             main_p = main_path)
+                             main_p = main_path) %>%
+        rename(Temperature = `Temperature °C`)
     }
-#browser()
+
     # add the flow data if plotting of flow data is required
     if (any(grepl("Flow",what_to_plot))==T) {
       data_plotting <- flow_convert(data_r, catch = which_catch,
@@ -102,22 +103,29 @@ read_data <- function(main_type, which_catch,
     browser()
     # manipulate data to plot exactly what is required
   data_plotting %>%
-    pivot_longer(c(what_to_plot[1],what_to_plot[2]), values_to = "Measurements",
+    pivot_longer(c(what_to_plot[[1]],what_to_plot[[2]]), values_to = "Measurements",
                  names_to = "Variables") %>%
     ggplot(aes(`Date and Time`,Measurements)) + geom_line() +
     theme_bw() + facet_wrap(~Variables, scales="free")
 
 }
 
-# testing
+# testing Use case 1
 read_data(main_type,which_catch,
           what_to_plot)
+# testing Use case 2
+read_data(main_type,which_catch,
+           what_to_plot, specific = specific_in)
 
 
 # Auxiliary functions
 # read_flume, the output of this function is a list with data from all loggers associated with the flumes
 read_flume <- function(which_catch,
-                            main_p = main_path) {
+                            main_p = main_path, ...) {
+  # catch extra arguments in a list
+  extra_args <- list(...)
+  
+  # check logger_order for catchments
   if (which_catch < 3) {
     path <- paste(main_p,"Flumes/V1V2", sep="/")
     logger_order <- c("isco","stevens","hobou20")
@@ -131,37 +139,50 @@ read_flume <- function(which_catch,
   dir_list <- dir_list[!grepl("Emergency",dir_list)]
   # Create an empty data list
   data <- list()
-
-  # run down logger order to read in the data from each logger
-  # this for loop needs to be rewritten as a function and using map
-  for (i in 1:length(logger_order)){
-    # find the path to the specific logger output
-    read_path <- paste(path,dir_list[grep(logger_order[i],dir_list,
-                                          ignore.case = T)],sep="/")
-    # find the list of files
-    filelist <- list.files(path=read_path,pattern ="csv")
-    # use do.call to call the different functions
-    # needs to be extended to read files with multiple dates
-    data[[i]] <- do.call(paste0("read_",logger_order[i]),
-                         # figure out which file to read
-                         list(filename =filelist[ifelse(which_catch < 3,
-                                                        which_catch, which_catch - 2)], 
-                              input_dir = read_path)) %>% 
-      # add a column with the name of logger
-      mutate(logger = logger_order[i])
+  #browser()
+  # for a specific logger, cut the logger_order vector to just that logger
+  if (is.null(extra_args[[names(extra_args) == "specific"]])==FALSE) {
+      logger_order <- logger_order[grepl(extra_args[[names(extra_args) == "specific"]],
+                                         logger_order, ignore.case = T)]
   }
+  # run down logger order to read in the data from each logger
+  data <- lapply(logger_order, read_logger_order, list(path = path, dir_list = dir_list))
+  
   names(data) <- logger_order
   # convert the isco logger data from ft to depth in meters
   is <- grep("isco",logger_order)
-  data[[is]] <- data[[is]] %>%
-    mutate(`Water Level, meters` = `Level (ft)`*0.3048) %>%
-    select(`Date and Time`, `Water Level, meters`, logger)
-             
+  data[[is]] <- isco_convert(data[[is]])
   
   # Convert the stevens logger from volt to depth
   st <- grep("stevens",logger_order)
-  data[[st]] <- data[[st]] %>%
-    mutate(`Water Level, meters` =
+  data[[st]] <- Stevens_convert(data[[st]], which_catch)
+  
+ 
+  # return list of logger data
+  return(data)
+}
+
+
+# # test
+# data_r <- do.call(read_flume,
+#                   list(which_catch = 1, 
+#                        main_p = "SampleFiles"))
+# str(data_r)
+
+# conversion of isco_logger
+isco_convert <- function(data_in) {
+  data_out <- data_in %>%
+    mutate(`Water Level, meters` = `Level (ft)`*0.3048) %>%
+    select(`Date and Time`, `Water Level, meters`, logger)
+  
+  return(data_out)
+}
+
+
+# conversion of Stevens logger
+Stevens_convert <- function(data_in, which_catch) {
+    data_out <- data_in %>% 
+      mutate(`Water Level, meters` =
              case_when(
                which_catch == 1 ~ -0.03549 + 1.2*`Volt, V`,
                which_catch == 2 ~ -0.666 + 1.2*`Volt, V`,
@@ -169,17 +190,38 @@ read_flume <- function(which_catch,
                which_catch == 2 ~ -0.65 + 1.2*`Volt, V`
              )) %>%
     select(`Date and Time`,`Water Level, meters`, logger)
-  
- 
-  # return list of logger data
-  return(data)
+  return(data_out)
 }
 
-# # test
-# data_r <- do.call(read_flume,
-#                   list(which_catch = 1, 
-#                        main_p = "SampleFiles"))
-# str(data_r)
+
+# read_logger_order function
+read_logger_order <- function(logger_order_pos, ...) {
+# this for loop needs to be rewritten as a function and using map
+  #browser()
+  extra_args <- (...)
+  path <- extra_args[[grep("path",names(extra_args))]]
+  dir_list <- extra_args[[grep("dir_list",names(extra_args))]]
+  #for (i in 1:length(logger_order)){
+  # find the path to the specific logger output
+  read_path <- paste(path,dir_list[grep(logger_order_pos,dir_list,
+                                        ignore.case = T)],sep="/")
+  # find the list of files
+  filelist <- list.files(path=read_path,pattern ="csv")
+  # use do.call to call the different functions
+  # needs to be extended to read files with multiple dates
+  data_out <- do.call(paste0("read_",logger_order_pos),
+                       # figure out which file to read
+                       list(filename =filelist[ifelse(which_catch < 3,
+                                                      which_catch, which_catch - 2)], 
+                            input_dir = read_path)) %>% 
+    # add a column with the name of logger
+    mutate(logger = logger_order_pos)
+
+    return(data_out)
+}
+  
+
+
 
 # flow conversion for flumes
 # HL flumes is simply an equation
