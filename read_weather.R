@@ -26,7 +26,8 @@ read_hobo_weather <- function(filename, dir ,
   file_out <- file_read %>%
     mutate(time = Add_zero(time)) %>%
     mutate(`Date and Time` = parse_date_time(paste0(year_file,"-",julian," ",time),
-                                             "%Y-%j %H%M")) 
+                                             "%Y-%j %H%M",
+                                             tz = "America/Argentina/Buenos_Aires")) 
 
   #browser()        
   if (plotit == T) {
