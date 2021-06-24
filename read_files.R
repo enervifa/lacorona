@@ -14,7 +14,7 @@ read_hobou20 <- function(filename, input_dir ,
       file_read <- read_csv(paste(input_dir,filename,sep="/"),
                             skip = skip, col_types = coltypes)
       file_read <- file_read %>%
-        mutate(`Date and Time` = mdy_hms(`Date Time, GMT-03:00`,
+        mutate(`Date and Time` = force_tz(mdy_hms(`Date Time, GMT-03:00`),
                                          tz = "America/Argentina/Buenos_Aires")) 
       colnames(file_read)[3:6] <- c("Abs Pressure kPa", "Temp, °C",
                                     "Bar Pressure kPa",
@@ -61,7 +61,7 @@ read_stevens <- function(filename, input_dir,
   file_read <- read_csv(paste(input_dir,filename,sep="/"),
                         skip = skip, col_types = coltypes)
   file_read <- file_read %>%
-    mutate(`Date and Time` = mdy_hms(`Date Time, GMT-03:00`,
+    mutate(`Date and Time` = force_tz(mdy_hms(`Date Time, GMT-03:00`),
                                      tz = "America/Argentina/Buenos_Aires")) 
   colnames(file_read)[3] <- "Volt, V"
   # if (grep("Temp, °C", colnames(file_read)[4]) == T) {
@@ -161,7 +161,7 @@ read_bar <- function(filename, input_dir ,
   file_read <- read_csv(paste(input_dir,filename,sep="/"),
                         skip = skip, col_types = coltypes)
   file_read <- file_read %>%
-    mutate(`Date and Time` = mdy_hms(`Date Time, GMT-03:00`,
+    mutate(`Date and Time` = force_tz(mdy_hms(`Date Time, GMT-03:00`), 
                                      tz = "America/Argentina/Buenos_Aires")) 
   colnames(file_read)[3:4] <- c("Abs Pressure kPa", "Temp, °C")
   file_out <- file_read %>%

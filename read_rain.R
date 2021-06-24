@@ -18,7 +18,8 @@ read_hobo_rain <- function(filename, dir ,
       file_read <- read_csv(paste(dir,filename,sep="/"),
                             skip = skip, col_types = coltypes)
       file_read <- file_read %>%
-      mutate(`Date and Time` = mdy_hms(`Date Time, GMT-03:00`)) 
+      mutate(`Date and Time` = mdy_hms(`Date Time, GMT-03:00`,
+                                       tz = "America/Argentina/Buenos_Aires")) 
       colnames(file_read)[3:4] <- c("Temp, °C", "Rain, tip count")
       #browser()
       # split out the temperature data

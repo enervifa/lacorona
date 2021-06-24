@@ -60,12 +60,16 @@ read_data <- function(main_type, which_catch,
       test <- sum(ifelse(is.na(data[[1]]$`Level (ft)`)==T,1,0))
       
     }
-    # number of data in "isco" file
-    isco_data <- data_r %>% filter(logger == "isco")
-    n_isco <- nrow(isco_data)
-    # if there are no missing data
-    if (fill_missing == F | nrow(na.omit(isco_data)) == n_isco) {
-      data_r <- data_r %>% filter(logger == "isco")
+    
+    # unless we are looking for a specific logger
+    if (is.null(specific) == T) {
+      # number of data points in "isco" file
+      isco_data <- data_r %>% filter(logger == "isco")
+      n_isco <- nrow(isco_data)
+      # if there are no missing data
+      if (fill_missing == F | nrow(na.omit(isco_data)) == n_isco) {
+        data_r <- data_r %>% filter(logger == "isco")
+      }
     }
     
     
@@ -92,19 +96,31 @@ read_data <- function(main_type, which_catch,
     
     # merge with rainfall data if exists
     if (exists("data_rain")) {
-      data_plotting <- left_join(data_plotting,data_rain, 
+      # use "full_join" as timesteps are different
+      data_plotting <- full_join(data_plotting,data_rain, 
                                  by = "Date and Time")
     }
     # merge with weather data if exists
     if (exists("data_w")) {
-      data_plotting <- left_join(data_plotting,data_w, 
+      # use "full_join" as timesteps are different
+      data_plotting <- full_join(data_plotting,data_w, 
                                  by = "Date and Time")
     }
-    browser()
+    #browser()
     # manipulate data to plot exactly what is required
   data_plotting %>%
-    pivot_longer(c(what_to_plot[[1]],what_to_plot[[2]]), values_to = "Measurements",
+    # select only relevant columns
+    select(`Date and Time`, as.name(what_to_plot[[1]]),as.name(what_to_plot[[2]])) %>%
+    # pivot longer for plotting in panels
+    pivot_longer(c(as.name(what_to_plot[[1]]),as.name(what_to_plot[[2]])), values_to = "Measurements",
                  names_to = "Variables") %>%
+    # group everything to hourly
+    group_by(Variables, Year = year(`Date and Time`), Month = month(`Date and Time`),
+             Day = day(`Date and Time`), Hour = hour(`Date and Time`)) %>%
+    summarise(Measurements = mean(Measurements, na.rm =T),
+              Variables = unique(Variables)) %>%
+    # add date and time back in
+    mutate(`Date and Time` = ymd_h(paste0(Year,"-",Month,"-",Day," ",Hour))) %>%
     ggplot(aes(`Date and Time`,Measurements)) + geom_line() +
     theme_bw() + facet_wrap(~Variables, scales="free")
 
@@ -125,21 +141,9 @@ read_flume <- function(which_catch,
   # catch extra arguments in a list
   extra_args <- list(...)
   
-  # check logger_order for catchments
-  if (which_catch < 3) {
-    path <- paste(main_p,"Flumes/V1V2", sep="/")
-    logger_order <- c("isco","stevens","hobou20")
-    
-  } else {
-    path <- paste(main_p,"Flumes/V3V4", sep="/")
-    logger_order <- c("isco","hobou20","stevens")
-  }
-  dir_list <- dir(path = path)
-  # exclude the emergency spill way HoboU20. Need to check with Chip
-  dir_list <- dir_list[!grepl("Emergency",dir_list)]
-  # Create an empty data list
-  data <- list()
-  #browser()
+  # extract the list of directories
+  dir_list <- dir_fun(which_catch, main_p)
+  
   # for a specific logger, cut the logger_order vector to just that logger
   if (is.null(extra_args[[names(extra_args) == "specific"]])==FALSE) {
       logger_order <- logger_order[grepl(extra_args[[names(extra_args) == "specific"]],
@@ -149,14 +153,18 @@ read_flume <- function(which_catch,
   data <- lapply(logger_order, read_logger_order, list(path = path, dir_list = dir_list))
   
   names(data) <- logger_order
+  #browser()
   # convert the isco logger data from ft to depth in meters
   is <- grep("isco",logger_order)
-  data[[is]] <- isco_convert(data[[is]])
+  if (length(is) > 0) {
+    data[[is]] <- isco_convert(data[[is]])
+  }
   
   # Convert the stevens logger from volt to depth
   st <- grep("stevens",logger_order)
-  data[[st]] <- Stevens_convert(data[[st]], which_catch)
-  
+  if (length(st) > 0) {
+    data[[st]] <- Stevens_convert(data[[st]], which_catch)
+  }
  
   # return list of logger data
   return(data)
@@ -168,6 +176,24 @@ read_flume <- function(which_catch,
 #                   list(which_catch = 1, 
 #                        main_p = "SampleFiles"))
 # str(data_r)
+
+dir_fun <- function(w_c, m_p) {
+  # check logger_order for catchments
+  if (w_c< 3) {
+    path <- paste(m_p,"Flumes/V1V2", sep="/")
+    logger_order <- c("isco","stevens","hobou20")
+    
+  } else {
+    path <- paste(m_p,"Flumes/V3V4", sep="/")
+    logger_order <- c("isco","hobou20","stevens")
+  }
+  dir_list <- dir(path = path)
+  # exclude the emergency spill way HoboU20. Need to check with Chip
+  dir_list <- dir_list[!grepl("Emergency",dir_list)]
+  
+  return(dir_list)  
+}
+
 
 # conversion of isco_logger
 isco_convert <- function(data_in) {
@@ -331,100 +357,23 @@ read_weather <- function(which_catch,
   # return list of logger data
   return(data)
 }
-# main_folder_chooser <- function(what_to_plot) {
-#   folder <- list()
-#   # now also includes character for file names
-#   folder[[1]] <- case_when(
-#     grepl("level",what_to_plot[[1]], ignore.case = T) == T ~ "Flumes",
-#     grepl("temperature",what_to_plot[[1]], ignore.case = T) == T ~ "Weather",
-#     grepl("rain",what_to_plot[[1]], ignore.case = T) == T ~ "Rain",
-#     grepl("well",what_to_plot[[1]], ignore.case = T) == T ~ "Well",
-#   )
-#   if (length(what_to_plot) > 1) {
-#     # second variable
-#     folder[[2]] <- case_when(
-#       grepl("level",what_to_plot[[2]], ignore.case = T) == T ~ "Flumes",
-#       grepl("temperature",what_to_plot[[2]], ignore.case = T) == T ~ "Weather",
-#       grepl("rain",what_to_plot[[2]], ignore.case = T) == T ~ "Rain",
-#       grepl("well",what_to_plot[[2]], ignore.case = T) == T ~ "Well",
-#     )
-#   }
-#   return(folder)
-# }
 
-# function to select correct row from look-up table
-rows_select <- function(what_to_plot, lookup) {
-  # find rows for first variable
-  funs_rows <- grep(what_to_plot[[1]],lookup$`variable 1`,
-                    ignore.case = T)
-  # if there is only one variable to plot
-  #(make this so it can be time later)
-  if (is.null(what_to_plot[[2]])) {
-    funs_rows_select <- lookup[is.na(lookup[funs_rows,"variable 2"]),]
-  } else {
-    funs_rows_select <- lookup[grep(what_to_plot[[2]],
-                                    lookup[funs_rows,"variable 2"],
-                                    ignore.case = T),]
-  }
-  return(funs_rows_select)
-}
-
-# # function to create paths
-# path_fun <- function(main_path, folder_in, which_catch, specific,
-#                      fun_data) {
-#   if (is.null(specific) == F) {
-#     path <- paste(main_path, folder_in, which_catch, specific,
-#                   sep="/")
+# # function to select correct row from look-up table
+# rows_select <- function(what_to_plot, lookup) {
+#   # find rows for first variable
+#   funs_rows <- grep(what_to_plot[[1]],lookup$`variable 1`,
+#                     ignore.case = T)
+#   # if there is only one variable to plot
+#   #(make this so it can be time later)
+#   if (is.null(what_to_plot[[2]])) {
+#     funs_rows_select <- lookup[is.na(lookup[funs_rows,"variable 2"]),]
 #   } else {
-#     # empty vector
-#     path <- list()
-#     paths <- fun_data[6:10] # hard coded
-#       # not very elegant, needs vectorisation
-#       path[[i]] <- map2(folder_in, paths, paste, main_path, which_catch,
-#                        sep="/") # hard coded 5
-#     }
+#     funs_rows_select <- lookup[grep(what_to_plot[[2]],
+#                                     lookup[funs_rows,"variable 2"],
+#                                     ignore.case = T),]
 #   }
-#   return(path)
-# }    
-
-# # function to find all filenames in the folder
-# find_file <- function(path_a, which_site, specific, fun_data) {
-#   filenames <- list()
-#   if (is.null(specific) == F) {
-#     filenames[[1]] <- file_name_select(path_a, which_site)
-#   } else {
-#     no_paths <- length(na.omit(fun_data[(ncol(fun_data)-3):ncol(fun_data)]))
-#     specific_folders <- na.omit(fun_data[(ncol(fun_data)-3):ncol(fun_data)])
-#     for (i in 1:no_paths) {
-#       filenames[[i]] <- file_name_select(path_a[[i]], which_site, 
-#                                          specific_folders[i])
-#     }
-#     return(file_names)    
-#   }
-#   
+#   return(funs_rows_select)
 # }
 
-
-
-# # Use acronym at the first part of the file
-# # function can be changed when we agree on file names
-# file_name_select <- function(path_a, which_site) {
-#   browser()
-#   files <- list.files(path = path_a, pattern = "csv")
-#   files_ini <- substr(files, 1,
-#                       (nchar(files) - 10))
-#   #browser()
-#   file_select <- files[grep(which_site, files_ini)]
-#   return(file_select)
-# }
-
-# # tester
-# main_path <- "SampleFiles"
-# folder_data <- "Flumes"
-# specific <- "HoboU20OutsideWell"
-# path_a <- paste(main_path,folder_data,which_catch, specific,
-#                 sep="/")
-# test <- file_name_select(path_a, which_site)
-# test
 
 
