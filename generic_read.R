@@ -1,33 +1,6 @@
 # Generic data reader
-
 require(tidyverse)
 require(lubridate)
-
-# Source the read scripts
-script_dir <- "LaCorona_Scripts/lacorona"
-source(paste(script_dir,"read_files.R",sep="/"))
-source(paste(script_dir,"read_rain.R",sep="/"))
-source(paste(script_dir,"read_weather.R",sep="/"))
-source(paste(script_dir,"read_well.R",sep="/"))
-
-### ----- use case 1
-# # What do you want to read?
-# main_type <- "Flumes"
-# which_catch <- 4 # or 2, 3 4
-# what_to_plot <- c("Water Level, meters","Flow (m3/sec)")
-
-### ---- use case 2
-main_type <- "Flumes"
-which_catch <- 1 # or 2, 3 4
-what_to_plot <- list("Water Level, meters","Temperature")
-specific_in <- "HOBOU20"
-# or specific can be ISCO, HOBOU20, HOBOU12(Stevens), Emergency (only for V1V2)
-
-### --- use case 3
-# main_type <- "Rain"
-# which_catch <- 2 # or 1, 3 4
-# what_to_plot <- list("Rain","Temperature")
-
 
 # generic read function
 read_data <- function(main_type, which_catch,
@@ -43,42 +16,41 @@ read_data <- function(main_type, which_catch,
       main_type == "Weather" ~ "read_weather"
     )
   
-    # read in the main data
-    data_r <- do.call(fun,
+    if (main_type == "Flumes") {
+      # read in the main data
+      data_r <- do.call(fun,
                       list(which_catch = which_catch, 
                            main_p = main_path, specific = specific))
-    if (main_type == "Flumes") {
       data_r <- bind_rows(data_r)
-    }
     
     
-    if (fill_missing == T) {
-      ## -----------------------------------------
-      ## in here do something with fill_missing = T
-      ## ------------------------------------------
-      # start with looking at the isco data, which has no missing
-      test <- sum(ifelse(is.na(data[[1]]$`Level (ft)`)==T,1,0))
+      if (fill_missing == T) {
+        ## -----------------------------------------
+        ## in here do something with fill_missing = T
+        ## ------------------------------------------
+        # start with looking at the isco data, which has no missing
+        test <- sum(ifelse(is.na(data[[1]]$`Level (ft)`)==T,1,0))
       
-    }
+      }
     
-    # unless we are looking for a specific logger
-    if (is.null(specific) == T) {
-      # number of data points in "isco" file
-      isco_data <- data_r %>% filter(logger == "isco")
-      n_isco <- nrow(isco_data)
-      # if there are no missing data
-      if (fill_missing == F | nrow(na.omit(isco_data)) == n_isco) {
-        data_r <- data_r %>% filter(logger == "isco")
+      # unless we are looking for a specific logger
+      if (is.null(specific) == T) {
+        # number of data points in "isco" file
+        isco_data <- data_r %>% filter(logger == "isco")
+        n_isco <- nrow(isco_data)
+        # if there are no missing data
+        if (fill_missing == F | nrow(na.omit(isco_data)) == n_isco) {
+          data_r <- data_r %>% filter(logger == "isco")
+        }
       }
     }
-    
-    
+    #browser()
     # check if weather data or rain data is needed
-    if (main_type != "Rain" || any(grepl("Rainfall", what_to_plot)) == T) {
+    if (main_type == "Rain" || any(grepl("Rainfall", what_to_plot)) == T) {
       data_rain <- read_rain(which_catch = which_catch,
                              main_p = main_path)
     }
-    if (main_type != "Weather" || any(grepl("Temperature", what_to_plot)) == T) {
+    if (main_type == "Weather" || any(grepl("Temp", what_to_plot)) == T) {
       data_w <- read_weather(which_catch = which_catch,
                              main_p = main_path) %>%
         rename(Temperature = `Temperature °C`)
@@ -89,17 +61,15 @@ read_data <- function(main_type, which_catch,
       data_plotting <- flow_convert(data_r, catch = which_catch,
                                     path = main_path)
     } else {
-      data_plotting <- data_r
+      if (exists("data_r")) data_plotting <- data_r
     }
     
-        
-    
     # merge with rainfall data if exists
-    if (exists("data_rain")) {
+    if (exists("data_rain") & exists("data_plotting")) {
       # use "full_join" as timesteps are different
       data_plotting <- full_join(data_plotting,data_rain, 
                                  by = "Date and Time")
-    }
+    } else data_plotting <- data_rain
     # merge with weather data if exists
     if (exists("data_w")) {
       # use "full_join" as timesteps are different
@@ -126,12 +96,12 @@ read_data <- function(main_type, which_catch,
 
 }
 
-# testing Use case 1
-read_data(main_type,which_catch,
-          what_to_plot)
-# testing Use case 2
-read_data(main_type,which_catch,
-           what_to_plot, specific = specific_in)
+# # testing Use case 1
+# read_data(main_type,which_catch,
+#           what_to_plot)
+# # testing Use case 2
+# read_data(main_type,which_catch,
+#            what_to_plot, specific = specific_in)
 
 
 # Auxiliary functions
@@ -246,9 +216,6 @@ read_logger_order <- function(logger_order_pos, ...) {
     return(data_out)
 }
   
-
-
-
 # flow conversion for flumes
 # HL flumes is simply an equation
 HL_convert <- function(H) {
@@ -289,7 +256,7 @@ flow_convert <- function(data_in, catch, path) {
   }
 }
 
-
+# read the groundwater wells
 read_well <- function(which_catch,
                        fill_missing = F, main_p = main_path, Automatic = T) {
     read_path <- paste(main_p,"Wells",
