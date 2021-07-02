@@ -4,7 +4,8 @@ require(lubridate)
 
 # generic read function
 read_data <- function(main_type, which_catch,
-                      what_to_plot, main_path = "SampleFiles",
+                      what_to_plot, time_scale = "hour",
+                      main_path = "SampleFiles",
                       specific = NULL,
                       fill_missing = F) {
  #browser()
@@ -65,11 +66,13 @@ read_data <- function(main_type, which_catch,
     }
     
     # merge with rainfall data if exists
-    if (exists("data_rain") & exists("data_plotting")) {
-      # use "full_join" as timesteps are different
-      data_plotting <- full_join(data_plotting,data_rain, 
+    if (exists("data_rain")) {
+        if (exists("data_plotting")) {
+          # use "full_join" as timesteps are different
+          data_plotting <- full_join(data_plotting,data_rain, 
                                  by = "Date and Time")
-    } else data_plotting <- data_rain
+        } else data_plotting <- data_rain
+    }
     # merge with weather data if exists
     if (exists("data_w")) {
       # use "full_join" as timesteps are different
@@ -78,21 +81,23 @@ read_data <- function(main_type, which_catch,
     }
     #browser()
     # manipulate data to plot exactly what is required
-  data_plotting %>%
-    # select only relevant columns
-    select(`Date and Time`, as.name(what_to_plot[[1]]),as.name(what_to_plot[[2]])) %>%
-    # pivot longer for plotting in panels
-    pivot_longer(c(as.name(what_to_plot[[1]]),as.name(what_to_plot[[2]])), values_to = "Measurements",
-                 names_to = "Variables") %>%
-    # group everything to hourly
-    group_by(Variables, Year = year(`Date and Time`), Month = month(`Date and Time`),
-             Day = day(`Date and Time`), Hour = hour(`Date and Time`)) %>%
-    summarise(Measurements = mean(Measurements, na.rm =T),
-              Variables = unique(Variables)) %>%
-    # add date and time back in
-    mutate(`Date and Time` = ymd_h(paste0(Year,"-",Month,"-",Day," ",Hour))) %>%
-    ggplot(aes(`Date and Time`,Measurements)) + geom_line() +
-    theme_bw() + facet_wrap(~Variables, scales="free")
+    
+    plot_data(data_plotting, what_to_plot, time_agg = time_scale)
+  # data_plotting %>%
+  #   # select only relevant columns
+  #   select(`Date and Time`, as.name(what_to_plot[[1]]),as.name(what_to_plot[[2]])) %>%
+  #   # pivot longer for plotting in panels
+  #   pivot_longer(c(as.name(what_to_plot[[1]]),as.name(what_to_plot[[2]])), values_to = "Measurements",
+  #                names_to = "Variables") %>%
+  #   # group everything to hourly
+  #   group_by(Variables, Year = year(`Date and Time`), Month = month(`Date and Time`),
+  #            Day = day(`Date and Time`), Hour = hour(`Date and Time`)) %>%
+  #   summarise(Measurements = mean(Measurements, na.rm =T),
+  #             Variables = unique(Variables)) %>%
+  #   # add date and time back in
+  #   mutate(`Date and Time` = ymd_h(paste0(Year,"-",Month,"-",Day," ",Hour))) %>%
+  #   ggplot(aes(`Date and Time`,Measurements)) + geom_line() +
+  #   theme_bw() + facet_wrap(~Variables, scales="free")
 
 }
 
@@ -113,14 +118,16 @@ read_flume <- function(which_catch,
   
   # extract the list of directories
   dir_list <- dir_fun(which_catch, main_p)
-  
+  #logger_order <- dir_list[[2]]
+  #dir_list <- dir_list[[1]]
+  #browser()
   # for a specific logger, cut the logger_order vector to just that logger
   if (is.null(extra_args[[names(extra_args) == "specific"]])==FALSE) {
-      logger_order <- logger_order[grepl(extra_args[[names(extra_args) == "specific"]],
-                                         logger_order, ignore.case = T)]
-  }
+      logger_order <- dir_list[[2]][grepl(extra_args[[names(extra_args) == "specific"]],
+                                         dir_list[[2]], ignore.case = T)]
+  } else logger_order <- dir_list[[2]]
   # run down logger order to read in the data from each logger
-  data <- lapply(logger_order, read_logger_order, list(path = path, dir_list = dir_list))
+  data <- lapply(logger_order, read_logger_order, list(path = dir_list[[3]], dir_list = dir_list[[1]]))
   
   names(data) <- logger_order
   #browser()
@@ -157,11 +164,12 @@ dir_fun <- function(w_c, m_p) {
     path <- paste(m_p,"Flumes/V3V4", sep="/")
     logger_order <- c("isco","hobou20","stevens")
   }
+  #browser()
   dir_list <- dir(path = path)
   # exclude the emergency spill way HoboU20. Need to check with Chip
   dir_list <- dir_list[!grepl("Emergency",dir_list)]
   
-  return(dir_list)  
+  return(list(dir_list,logger_order,path))  
 }
 
 
